@@ -1,0 +1,71 @@
+{
+	version = "0.7.1",
+	changelog = [[
+		0.7.1:
+		Core OS:
+			+ OpenComputers Lua 5.3 and Lua 5.4 support (Lua 5.2 is refused by the installer)
+			+ Full unsigned 32-bit bit32 layer for Lua 5.3/5.4
+			+ io.tounum and io.fromunum use string.pack/string.unpack when available
+			+ Fixed tasks.newDaemon, process cleanup, timers and process metrics
+			+ Event timers now use computer.uptime() instead of os.clock()
+			+ Filesystem: case-insensitive drive letters, safe freeDriveLetter, recursive copy/rename parents
+			+ Drivers: DRV_PATH falls back to A:/Fuchas/Drivers/ when unset
+			+ Users: fixed login, logout, getUser and account creation
+			+ Kernel: nil-safe boot error screen and environment protection
+		Installer:
+			+ Downloads release.cpio from GitHub, with jsDelivr and raw.githack mirrors
+			+ Offline install from a local fuchas.cpio, validated before extraction
+			+ Streaming CPIO extraction with path traversal protection
+			+ Creates directories, verifies every extracted file and shows a readable error screen
+			+ Admin password confirmation and SHA3-512 account creation
+			+ Bundled init.lua and dualboot_init.lua for offline installation
+		CPIO:
+			+ Correct old-binary (070707) parser and writer, including round-trip and mode preservation
+		Tools:
+			+ Reproducible release builder (tools/build_cpio.py)
+			+ Installer, boot, upgrade and syntax test harnesses
+		Fixes:
+			+ upgrade-fuchas.lua: uses the GPU/Internet drivers, handles directories and padding, skips unsafe paths
+			+ Internet driver: fixed httpDownload/readFully stream handling
+		0.7.0:
+		Core OS:
+			+ Security improvements
+			+ Fixed Concert
+			+ Fushell boot screen is now lighter
+			+ New in-OS documentation using OHML
+			+ Working shell command history
+			+ Working Stardust project: you can run OpenOS binaries on Fuchas
+			+ Detachable file handles
+			+ Horizontal tab is now an actual tab (not just converted to 4 spaces)
+			+ The scheduler is now using an SJF algorithm
+			+ "package" and "bit32" are now protected.
+			+ Added services : processes that auto-run at start
+			+ Added "service" tool to manage services
+			+ Added safe mode : non-essential drivers and services are not loaded, press F1 while booting to go in safe mode
+			+ Removed zorya-modules folder on the github (wasn't installed anyways)
+			+ Added support for reading and writing CPIO and VELX files.
+			+ Removed automatic Unicode which turned out to be bad
+			+ Improved process piping, fixed a bug and buffered them
+			+ Better unicode support in "shell" library, options are now correctly parsed (ex: --a=test or -abc are now possible)
+		Tools:
+			+ Added "cpio" tool to package and extract CPIOs
+			+ Added "find" command for use with "cpio" tool (and others)
+			+ "dmesg" command
+			+ "apm info" sub-command
+			+ "move" command
+			+ Improved "pl" command
+			+ Added "-s" flag to sudo, to launch a shell with sudo.
+		Lua API:
+			+ print(...) now calls tostring
+			+ "string.trim(s)" to remove trailing spaces
+			+ io.tounum can now convert result to string using toString argument
+			+ Added alwaysResolve argument to shell.resolve, if true it will returns the original path when no resolve was found.
+		Drivers:
+			+ The GPU driver can automatically move buffers from and to RAM when VRAM is missing.
+			+ The GPU driver now supports OC buffers
+			+ New driver using for CC printers
+			+ Fixed "ctape" driver
+		Installers:
+			+ Fix the OpenOS installer
+	]]
+}

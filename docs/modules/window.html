@@ -1,0 +1,359 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Fuchas Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Fuchas</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Fields">Fields</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/OCX.OCDraw.html">OCX.OCDraw</a></li>
+  <li><a href="../modules/OCX.OCImage.html">OCX.OCImage</a></li>
+  <li><a href="../modules/buffer.html">buffer</a></li>
+  <li><a href="../modules/clipboard.html">clipboard</a></li>
+  <li><a href="../modules/driver.html">driver</a></li>
+  <li><a href="../modules/event.html">event</a></li>
+  <li><a href="../modules/filesystem.html">filesystem</a></li>
+  <li><a href="../modules/ipc.html">ipc</a></li>
+  <li><a href="../modules/log.html">log</a></li>
+  <li><a href="../modules/security.html">security</a></li>
+  <li><a href="../modules/shell.html">shell</a></li>
+  <li><a href="../modules/tasks.html">tasks</a></li>
+  <li><a href="../modules/text.html">text</a></li>
+  <li><a href="../modules/users.html">users</a></li>
+  <li><a href="../modules/velx.html">velx</a></li>
+  <li><strong>window</strong></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>window</code></h1>
+<p>Window library</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#desktop">desktop ()</a></td>
+	<td class="summary">Returns the desktop</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#clearDesktop">clearDesktop ()</a></td>
+	<td class="summary">Clear the desktop</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#drawBackground">drawBackground (x, y, width, height)</a></td>
+	<td class="summary">Draw a section of the desktop background.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#moveWindow">moveWindow (win, targetX, targetY)</a></td>
+	<td class="summary">Move the given window</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#drawWindow">drawWindow (win)</a></td>
+	<td class="summary">Draw the given window</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#requestExclusiveContext">requestExclusiveContext ()</a></td>
+	<td class="summary">Returns context if the caller can now use the GPU driver freely by temporarily disabling the window manager
+ This could typically be used for games or fullscreen Fushell programs.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#drawDesktop">drawDesktop ()</a></td>
+	<td class="summary">Draw all the windows in the desktop</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#newWindow">newWindow (width, height[, title])</a></td>
+	<td class="summary">Create a new window</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#focus">focus ()</a></td>
+	<td class="summary">Focus the window</td>
+	</tr>
+</table>
+<h2><a href="#Fields">Fields</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#title">title</a></td>
+	<td class="summary">Title of the window</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "desktop"></a>
+    <strong>desktop ()</strong>
+    </dt>
+    <dd>
+    Returns the desktop
+
+    </ul>
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "clearDesktop"></a>
+    <strong>clearDesktop ()</strong>
+    </dt>
+    <dd>
+    Clear the desktop
+
+    </ul>
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "drawBackground"></a>
+    <strong>drawBackground (x, y, width, height)</strong>
+    </dt>
+    <dd>
+    Draw a section of the desktop background.
+
+    </ul>
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">x</span>
+            <span class="types"><span class="type">int</span></span>
+         The X position of the background section
+        </li>
+        <li><span class="parameter">y</span>
+            <span class="types"><span class="type">int</span></span>
+         The Y position of the background section
+        </li>
+        <li><span class="parameter">width</span>
+            <span class="types"><span class="type">int</span></span>
+         The width of the background section
+        </li>
+        <li><span class="parameter">height</span>
+            <span class="types"><span class="type">int</span></span>
+         The height of the background section
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "moveWindow"></a>
+    <strong>moveWindow (win, targetX, targetY)</strong>
+    </dt>
+    <dd>
+    Move the given window
+
+    </ul>
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">win</span>
+
+
+
+        </li>
+        <li><span class="parameter">targetX</span>
+
+
+
+        </li>
+        <li><span class="parameter">targetY</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "drawWindow"></a>
+    <strong>drawWindow (win)</strong>
+    </dt>
+    <dd>
+    Draw the given window
+
+    </ul>
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">win</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "requestExclusiveContext"></a>
+    <strong>requestExclusiveContext ()</strong>
+    </dt>
+    <dd>
+    Returns context if the caller can now use the GPU driver freely by temporarily disabling the window manager
+ This could typically be used for games or fullscreen Fushell programs.
+
+    </ul>
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "drawDesktop"></a>
+    <strong>drawDesktop ()</strong>
+    </dt>
+    <dd>
+    Draw all the windows in the desktop
+
+    </ul>
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newWindow"></a>
+    <strong>newWindow (width, height[, title])</strong>
+    </dt>
+    <dd>
+    Create a new window
+
+    </ul>
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">width</span>
+            <span class="types"><span class="type">int</span></span>
+         The width of the new window
+        </li>
+        <li><span class="parameter">height</span>
+            <span class="types"><span class="type">int</span></span>
+         The height of the new window
+        </li>
+        <li><span class="parameter">title</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.3/manual.html#6.4">string</a></span>
+         The title of the new window
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">window</span></span>
+        The newly created window
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "focus"></a>
+    <strong>focus ()</strong>
+    </dt>
+    <dd>
+    Focus the window
+
+    </ul>
+
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Fields"></a>Fields</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "title"></a>
+    <strong>title</strong>
+    </dt>
+    <dd>
+    Title of the window
+
+    </ul>
+
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2021-12-27 19:58:59 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

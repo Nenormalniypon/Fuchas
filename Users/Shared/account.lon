@@ -1,0 +1,7 @@
+{
+	name = "guest",
+	pathName = "Shared",
+	security = "none",
+	userId = 1000,
+	groups = {}
+}
