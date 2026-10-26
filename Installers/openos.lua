@@ -139,7 +139,7 @@ local function writeFile(path, data)
 		return nil, werr
 	end
 	local cok, cerr = handle:close()
-	if cok == nil or cok == false then
+	if cok == false then
 		return nil, cerr or "could not close file"
 	end
 	return true
@@ -332,7 +332,7 @@ local function extract(stream, onProgress)
 			if not ok then
 				return nil, "could not write " .. target .. ": " .. tostring(werr)
 			end
-			if cok == nil or cok == false then
+			if cok == false then
 				return nil, "could not close " .. target .. ": " .. tostring(cerr)
 			end
 			files = files + 1
@@ -530,7 +530,7 @@ local function downloadToFile(url, path)
 
 	local cok, cerr = handle:close()
 	if not ok then return nil, tostring(derr) end
-	if cok == nil or cok == false then
+	if cok == false then
 		return nil, tostring(cerr or "could not close the file")
 	end
 	if total == 0 then
