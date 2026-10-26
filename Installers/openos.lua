@@ -145,39 +145,6 @@ local function writeFile(path, data)
 	return true
 end
 
-local function stringStream(data)
-	local stream = {}
-	local pos = 1
-	function stream:read(amount)
-		if amount == nil or amount == math.huge then
-			amount = #data - pos + 1
-		end
-		amount = math.floor(amount)
-		if amount <= 0 then return "" end
-		if pos > #data then return nil end
-		local chunk = data:sub(pos, pos + amount - 1)
-		pos = pos + #chunk
-		return chunk
-	end
-	function stream:seek(whence, offset)
-		whence = whence or "cur"
-		offset = math.floor(offset or 0)
-		if whence == "set" or whence == "beg" then
-			pos = offset + 1
-		elseif whence == "cur" then
-			pos = pos + offset
-		elseif whence == "end" then
-			pos = #data + offset + 1
-		else
-			return nil, "invalid whence"
-		end
-		if pos < 1 then pos = 1 end
-		return pos - 1
-	end
-	function stream:close() end
-	return stream
-end
-
 local function readExact(stream, amount, what)
 	if amount == 0 then return "" end
 	local chunks = {}
@@ -196,6 +163,26 @@ local function readExact(stream, amount, what)
 	return table.concat(chunks)
 end
 
+-- Copy exactly `amount` bytes from the archive to an open file without ever
+-- holding the whole file in memory (the wallpaper alone is 256 KB).
+local function writeExact(stream, handle, amount, what)
+	local got = 0
+	while got < amount do
+		local want = amount - got
+		if want > 8192 then want = 8192 end
+		local chunk, err = stream:read(want)
+		if not chunk or #chunk == 0 then
+			return nil, (err or (what .. ": unexpected end of archive"))
+		end
+		local ok, werr = handle:write(chunk)
+		if ok == nil or ok == false then
+			return nil, tostring(werr or ("could not write " .. tostring(what)))
+		end
+		got = got + #chunk
+	end
+	return true
+end
+
 local function readInt(stream, amount)
 	local bytes, err = readExact(stream, amount, "CPIO header")
 	if not bytes then return nil, err end
@@ -206,18 +193,43 @@ local function readInt(stream, amount)
 	return value
 end
 
-local function validateCpio(data)
-	if type(data) ~= "string" or #data < 26 then
+-- Validate an archive on disk.  It is read in small chunks so that the
+-- installer also works on computers with only 192-384 KB of RAM.
+local function validateArchive(path)
+	local handle, err = io.open(path, "rb")
+	if not handle then
+		return false, tostring(err or ("cannot open " .. tostring(path)))
+	end
+	local head = handle:read(26)
+	if not head or #head < 2 then
+		handle:close()
 		return false, "archive is empty or truncated"
 	end
-	local magic = data:byte(1) + data:byte(2) * 256
+	local magic = head:byte(1) + head:byte(2) * 256
 	if magic ~= 0x71C7 then
-		if data:sub(1, 6) == "070701" or data:sub(1, 6) == "070702" then
+		handle:close()
+		if head:sub(1, 6) == "070701" or head:sub(1, 6) == "070702" then
 			return false, "archive uses the 'newc' CPIO format; Fuchas needs the old binary format"
 		end
 		return false, string.format("not a Fuchas CPIO archive (magic 0x%04X)", magic)
 	end
-	if not data:find("TRAILER!!!", 1, true) then
+
+	local tail = head
+	while true do
+		local chunk, rerr = handle:read(8192)
+		if chunk == nil then
+			if rerr then
+				handle:close()
+				return false, tostring(rerr)
+			end
+			break
+		end
+		if chunk == "" then break end
+		tail = (tail .. chunk):sub(-64)
+	end
+	handle:close()
+
+	if not tail:find("TRAILER!!!", 1, true) then
 		return false, "archive has no CPIO trailer (the download was probably incomplete)"
 	end
 	return true
@@ -238,8 +250,7 @@ end
 -- Extract an old-binary (070707) CPIO archive.  Unlike the original parser
 -- this validates every read, so a dead mirror can no longer cause
 -- "string.byte(nil)" deep inside readint().
-local function extract(data, onProgress)
-	local stream = stringStream(data)
+local function extract(stream, onProgress)
 	local entries, files = 0, 0
 
 	local function readHeader()
@@ -298,27 +309,8 @@ local function extract(data, onProgress)
 		local isDirectory = (ftype == 4) -- 0040000
 		local isFile = (ftype == 8) -- 0100000
 
-		local body = nil
-		if isFile and header.filesize > 0 then
-			local derr
-			body, derr = readExact(stream, header.filesize, clean)
-			if not body then return nil, derr end
-		elseif header.filesize > 0 then
-			local ignored, derr = readExact(stream, header.filesize, clean)
-			if not ignored then return nil, derr end
-		end
-		if header.filesize % 2 == 1 then
-			local pad, perr = readExact(stream, 1, "CPIO data padding")
-			if not pad then return nil, perr end
-		end
-
 		local target = baseDir .. clean
-		if isDirectory then
-			local ok, derr = ensureDir(target)
-			if not ok then
-				return nil, "could not create directory " .. target .. ": " .. tostring(derr)
-			end
-		elseif isFile then
+		if isFile then
 			local parent = target:match("^(.*)/[^/]*$")
 			if parent then
 				local ok, derr = ensureDir(parent)
@@ -326,11 +318,41 @@ local function extract(data, onProgress)
 					return nil, "could not create directory " .. parent .. ": " .. tostring(derr)
 				end
 			end
-			local ok, werr = writeFile(target, body or "")
+
+			local handle, herr = io.open(target, "wb")
+			if not handle then
+				return nil, "could not write " .. target .. ": " .. tostring(herr)
+			end
+
+			local ok, werr = true, nil
+			if header.filesize > 0 then
+				ok, werr = writeExact(stream, handle, header.filesize, clean)
+			end
+			local cok, cerr = handle:close()
 			if not ok then
 				return nil, "could not write " .. target .. ": " .. tostring(werr)
 			end
+			if cok == nil or cok == false then
+				return nil, "could not close " .. target .. ": " .. tostring(cerr)
+			end
 			files = files + 1
+		elseif header.filesize > 0 then
+			-- Directories and other entry types: skip their payload but keep
+			-- the stream aligned with the next header.
+			local ignored, derr = readExact(stream, header.filesize, clean)
+			if not ignored then return nil, derr end
+		end
+
+		if isDirectory then
+			local ok, derr = ensureDir(target)
+			if not ok then
+				return nil, "could not create directory " .. target .. ": " .. tostring(derr)
+			end
+		end
+
+		if header.filesize % 2 == 1 then
+			local pad, perr = readExact(stream, 1, "CPIO data padding")
+			if not pad then return nil, perr end
 		end
 
 		entries = entries + 1
@@ -351,64 +373,119 @@ local function getInternet()
 		local ok, internet = pcall(component.getPrimary, "internet")
 		if ok and internet then return internet end
 	end
-	return component.internet
+	local ok, internet = pcall(function() return component.internet end)
+	if ok and internet then return internet end
+	return nil
 end
 
 local drawStage -- defined with the UI below
 
-local function httpGet(url)
-	local internet = getInternet()
-	if not internet then
+local function closeStream(stream)
+	if type(stream) == "function" then
+		pcall(stream)
+	elseif stream and stream.close then
+		pcall(stream.close, stream)
+	end
+end
+
+-- Return an iterator over the response body, or nil and an error.
+--
+-- OpenOS' own internet library (the one wget uses) is preferred: it already
+-- waits for the asynchronous request.  The raw component API is kept as a
+-- fallback.  Important: OC's finishConnect() is *not* blocking.  It returns
+-- false while the request is still in flight and only raises on a real
+-- failure, so false must never be treated as "connection failed".
+local function openHttp(url)
+	local ok, internet = pcall(require, "internet")
+	if ok and type(internet) == "table" and internet.request then
+		local rok, response, rerr = pcall(internet.request, url)
+		if not rok then return nil, tostring(response) end
+		if not response then return nil, tostring(rerr or "request failed") end
+		return response, response
+	end
+
+	local card = getInternet()
+	if not card then
 		return nil, "no internet card is available"
 	end
 
-	local ok, connection, rerr = pcall(internet.request, url)
-	if not ok then return nil, tostring(connection) end
+	local rok, connection, rerr = pcall(card.request, url)
+	if not rok then return nil, tostring(connection) end
 	if not connection then return nil, tostring(rerr or "internet.request failed") end
 
 	if connection.finishConnect then
-		local cok, cres, cerr = pcall(connection.finishConnect, connection)
-		if not cok then
-			pcall(connection.close, connection)
-			return nil, tostring(cres)
-		elseif cres == false then
-			pcall(connection.close, connection)
-			return nil, tostring(cerr or "connection failed")
+		local deadline = computer.uptime() + 90
+		while true do
+			local cok, ready = pcall(connection.finishConnect)
+			if not cok then
+				pcall(connection.close)
+				return nil, tostring(ready)
+			end
+			if ready then break end
+			if computer.uptime() >= deadline then
+				pcall(connection.close)
+				return nil, "connection timed out"
+			end
+			os.sleep(0.1)
 		end
 	end
 
 	if connection.response then
-		local rok, code, message = pcall(connection.response, connection)
-		code = rok and tonumber(code)
+		local rok2, code, message = pcall(connection.response)
+		code = rok2 and tonumber(code)
 		if code and code >= 400 then
-			pcall(connection.close, connection)
+			pcall(connection.close)
 			return nil, "HTTP " .. code .. (message and (" " .. tostring(message)) or "")
 		end
 	end
 
-	local chunks, total = {}, 0
-	while true do
-		local rok, data, derr = pcall(connection.read, connection, 8192)
-		if not rok then
-			pcall(connection.close, connection)
-			return nil, tostring(data)
+	local closed = false
+	local function close()
+		if not closed then
+			closed = true
+			pcall(connection.close)
 		end
-		if data == nil then
-			if derr then
-				pcall(connection.close, connection)
-				return nil, tostring(derr)
-			end
-			break
-		end
-		if #data == 0 then break end
-		chunks[#chunks + 1] = data
-		total = total + #data
 	end
-	pcall(connection.close, connection)
 
-	if total == 0 then
-		return nil, "empty response from " .. url
+	-- Empty strings mean "no data yet" for OC's HTTP handle, not EOF.
+	local iterator = function()
+		local deadline = computer.uptime() + 60
+		while true do
+			local readOk, data = pcall(connection.read, 8192)
+			if not readOk then
+				close()
+				error(tostring(data), 0)
+			end
+			if data == nil then
+				close()
+				return nil
+			end
+			if #data > 0 then
+				deadline = computer.uptime() + 60
+				return data
+			end
+			if computer.uptime() >= deadline then
+				close()
+				error("download stalled", 0)
+			end
+			os.sleep(0.05)
+		end
 	end
+	return iterator, close
+end
+
+local function httpGet(url)
+	local stream, closer = openHttp(url)
+	if not stream then return nil, closer end
+	local chunks = {}
+	local ok, derr = pcall(function()
+		for chunk in stream do
+			chunks[#chunks + 1] = chunk
+		end
+	end)
+	closeStream(closer)
+	if not ok then return nil, tostring(derr) end
+	if #chunks == 0 then return nil, "empty response from " .. url end
 	return table.concat(chunks)
 end
 
@@ -419,6 +496,47 @@ local function archiveURLs()
 		urls[#urls + 1] = mirror .. b .. "/release.cpio"
 	end
 	return urls
+end
+
+local function downloadPath()
+	return cpioBaseDir .. ".fuchas-download.cpio"
+end
+
+-- Stream the response straight to disk: release.cpio is ~720 KB, which does
+-- not fit in the RAM of a tier 1/2 computer.
+local function downloadToFile(url, path)
+	local stream, closer = openHttp(url)
+	if not stream then return nil, closer end
+
+	local handle, herr = io.open(path, "wb")
+	if not handle then
+		closeStream(closer)
+		return nil, tostring(herr or ("cannot write " .. tostring(path)))
+	end
+
+	local total = 0
+	local ok, derr = pcall(function()
+		for chunk in stream do
+			local wok, werr = handle:write(chunk)
+			if wok == nil or wok == false then
+				error(tostring(werr or "write failed"), 0)
+			end
+			total = total + #chunk
+			downloading = string.format("%s (%d KB)", url, math.floor(total / 1024))
+			drawStage()
+		end
+	end)
+	closeStream(closer)
+
+	local cok, cerr = handle:close()
+	if not ok then return nil, tostring(derr) end
+	if cok == nil or cok == false then
+		return nil, tostring(cerr or "could not close the file")
+	end
+	if total == 0 then
+		return nil, "empty response from " .. url
+	end
+	return total
 end
 
 local function findLocalArchive()
@@ -432,15 +550,10 @@ local function findLocalArchive()
 
 	for _, path in ipairs(candidates) do
 		if exists(path) then
-			local data, err = readFile(path)
-			if data then
-				local ok, verr = validateCpio(data)
-				if ok then return data, path end
-				-- Remember the reason for the last bad local candidate.
-				downloading = path .. ": " .. tostring(verr)
-			elseif err then
-				downloading = path .. ": " .. tostring(err)
-			end
+			local ok, verr = validateArchive(path)
+			if ok then return path end
+			-- Remember the reason for the last bad local candidate.
+			downloading = path .. ": " .. tostring(verr)
 		end
 	end
 	return nil
@@ -448,18 +561,29 @@ end
 
 local function downloadArchive()
 	local errors = {}
+	local target = downloadPath()
 	for _, url in ipairs(archiveURLs()) do
 		downloading = url
 		drawStage()
-		local data, err = httpGet(url)
-		if data then
-			local ok, verr = validateCpio(data)
-			if ok then return data, url end
+		local size, err = downloadToFile(url, target)
+		if size then
+			local ok, verr = validateArchive(target)
+			if ok then return target, url end
 			err = verr
 		end
+		pcall(filesystem.remove, target)
 		errors[#errors + 1] = url .. ": " .. tostring(err)
 	end
 	return nil, table.concat(errors, "\n")
+end
+
+local function extractFile(path, onProgress)
+	local handle, err = io.open(path, "rb")
+	if not handle then return nil, tostring(err) end
+	local ok, entries, files = pcall(extract, handle, onProgress)
+	pcall(handle.close, handle)
+	if not ok then return nil, tostring(entries) end
+	return entries, files
 end
 
 -- ---------------------------------------------------------------------------
@@ -678,38 +802,40 @@ local function createAdminAccount()
 end
 
 local function install()
-	local data, source = findLocalArchive()
-	if not data then
+	local path = findLocalArchive()
+	local cleanup = false
+	if not path then
 		stage = 5
 		drawStage()
 		local err
-		data, err = downloadArchive()
-		if not data then
+		path, err = downloadArchive()
+		if not path then
 			error("Could not download Fuchas.\n" .. tostring(err) ..
 				"\n\nDownload release.cpio manually and save it as " ..
 				cpioBaseDir .. "fuchas.cpio, then run this installer again.")
 		end
-	else
-		source = source or "local archive"
+		cleanup = true
 	end
 
-	local ok, verr = validateCpio(data)
+	local ok, verr = validateArchive(path)
 	if not ok then
+		if cleanup then pcall(filesystem.remove, path) end
 		error("Invalid Fuchas package: " .. tostring(verr))
 	end
 
 	stage = 5
-	downloading = source or "package"
+	downloading = path
 	drawStage()
 
 	local lastDraw = 0
-	local count, writtenOrError = extract(data, function(name, entries, files)
+	local count, writtenOrError = extractFile(path, function(name, entries, files)
 		downloading = name
 		if entries - lastDraw >= 8 then
 			lastDraw = entries
 			drawStage()
 		end
 	end)
+	if cleanup then pcall(filesystem.remove, path) end
 	if not count then
 		error("Could not extract the package: " .. tostring(writtenOrError))
 	end
